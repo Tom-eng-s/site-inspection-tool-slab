@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Slab Pre-Pour Inspection Tool</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { font-size: 20px; margin-bottom: 10px; }
+    .section { margin: 20px 0; }
+    label { display: block; margin-bottom: 5px; }
+    .photos img { max-width: 150px; margin: 5px; border: 1px solid #ccc; }
+    textarea, input { width: 100%; padding: 5px; margin: 5px 0 15px 0; }
+    textarea { height: 100px; }
+    button { margin-top: 20px; padding: 10px 20px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Slab Pre-Pour Inspection</h1>
+
+  <div class="section">
+    <h3>Project Details</h3>
+    <label>Date: <input type="date" id="date"></label>
+    <label>Project Name: <input type="text" id="projectName" placeholder="Enter project name"></label>
+    <label>Inspector Name: <input type="text" id="inspectorName" placeholder="Enter inspector name"></label>
+    <label>Signature (type name or initials): <input type="text" id="signature" placeholder="Enter signature"></label>
+  </div>
+
+  <div class="section checklist">
+    <h3>Checklist</h3>
+    <label><input type="checkbox" value="Formwork straight and secure"> Formwork straight and secure</label>
+    <label><input type="checkbox" value="Reinforcement correctly placed and tied"> Reinforcement correctly placed and tied</label>
+    <label><input type="checkbox" value="Bar chairs providing correct cover"> Bar chairs providing correct cover</label>
+    <label><input type="checkbox" value="Plumbing and electrical conduits in place"> Plumbing and electrical conduits in place</label>
+    <label><input type="checkbox" value="Moisture barrier installed and taped"> Moisture barrier installed and taped</label>
+    <label><input type="checkbox" value="Site clean and free of debris"> Site clean and free of debris</label>
+  </div>
+
+  <div class="section photos">
+    <h3>Upload Photos</h3>
+    <input type="file" id="photoInput" multiple accept="image/*"><br>
+    <div id="photoPreview"></div>
+  </div>
+
+  <div class="section notes">
+    <h3>Notes</h3>
+    <textarea id="notes"></textarea>
+  </div>
+
+  <button onclick="generatePDF()">Generate PDF Report</button>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    const photoInput = document.getElementById('photoInput');
+    const photoPreview = document.getElementById('photoPreview');
+    let photoDataUrls = [];
+
+    photoInput.addEventListener('change', async (event) => {
+      photoPreview.innerHTML = '';
+      photoDataUrls = [];
+      for (const file of event.target.files) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          photoPreview.appendChild(img);
+          photoDataUrls.push(e.target.result);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function generatePDF() {
+      const doc = new jsPDF();
+
+      // Report title
+      doc.setFontSize(18);
+      doc.text("Slab Pre-Pour Inspection Report", 14, 20);
+
+      // Project details
+      doc.setFontSize(12);
+      const date = document.getElementById('date').value || new Date().toLocaleDateString();
+      const projectName = document.getElementById('projectName').value || "N/A";
+      const inspectorName = document.getElementById('inspectorName').value || "N/A";
+      const signature = document.getElementById('signature').value || "N/A";
+
+      doc.text(`Date: ${date}`, 14, 30);
+      doc.text(`Project Name: ${projectName}`, 14, 38);
+      doc.text(`Inspector: ${inspectorName}`, 14, 46);
+      doc.text(`Signature: ${signature}`, 14, 54);
+
+      // Checklist
+      const items = Array.from(document.querySelectorAll('.checklist input[type=checkbox]'))
+        .map(cb => [cb.value, cb.checked ? "✅ Pass" : "❌ Not Checked"]);
+
+      doc.autoTable({
+        head: [['Item', 'Status']],
+        body: items,
+        startY: 64
+      });
+
+      // Notes
+      const finalY = doc.lastAutoTable.finalY || 70;
+      doc.setFontSize(14);
+      doc.text("Notes:", 14, finalY + 10);
+      doc.setFontSize(12);
+      const notes = document.getElementById('notes').value;
+      doc.text(notes, 14, finalY + 20, { maxWidth: 180 });
+
+      // Photos
+      let y = finalY + 40;
+      for (let dataUrl of photoDataUrls) {
+        if (y > 250) { doc.addPage(); y = 20; }
+        doc.addImage(dataUrl, 'JPEG', 14, y, 80, 60);
+        y += 70;
+      }
+
+      doc.save("slab-inspection-report.pdf");
+    }
+  </script>
+</body>
+</html>
