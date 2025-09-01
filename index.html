@@ -310,12 +310,25 @@ function getDetails() {
   }
 }
 
+
+//PDF Generation
 function buildPdf() {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   doc.addFileToVFS("Gadugi.ttf", gadugiNormal);
   doc.addFont("Gadugi.ttf", "Gadugi", "normal");
   doc.addFileToVFS("Gadugi-Bold.ttf", gadugiBold);
   doc.addFont("Gadugi-Bold.ttf", "Gadugi-Bold", "normal");
+
+  //Date formatter
+  function formatDate(dateStr) {
+    if(!dateStr) return "";
+    return dateStr.replace(/-/g,".");
+  }
+  // --- Grab project details (once, with formatted date) ---
+  const jobNo   = document.getElementById("cgwJobNo").value;
+  const rawDate = document.getElementById("inspectionDate").value;
+  const dateVal = formatDate(rawDate);   //  use this everywhere
+  const purpose = document.getElementById("purpose").value;
 
   // Title
   doc.setFont("Gadugi-Bold", "normal");
@@ -340,7 +353,7 @@ function buildPdf() {
     doc.text(label + ': ' + (value||''), x+2.4, y+h/2+2);
   }
   drawLabeledBox('Location', d.location, x0, y, L, rowH);
-  drawLabeledBox('Inspection Date', d.inspectionDate, x0+L, y, R, rowH);
+  drawLabeledBox('Inspection Date', dateVal, x0+L, y, R, rowH);
   y += rowH;
   drawLabeledBox('CGW Job No.', d.cgwJobNo, x0, y, L/2, rowH);
   drawLabeledBox('BC No.', d.bcNo, x0+L/2, y, L/2, rowH);
@@ -457,8 +470,9 @@ doc.setFont("Gadugi", "normal"); // reset
   by+=rowH;
 
   // Signed row
-  doc.rect(x0, by, 182, rowH);
-  doc.text('Signed:', x0+2.4, by+rowH/2+2);
+  doc.rect(x0, by, 182, rowH * 1.6);
+  doc.text('Signed:', x0 + 2.4, by + (rowH * 1.6) / 2 + 2.5); // center at half of 1.6*rowH
+  by += rowH * 2; // move cursor down correctly for next content
 
   // Photos page
   if(photoDataUrls.length){
@@ -475,12 +489,50 @@ doc.setFont("Gadugi", "normal"); // reset
       px+=imgW+gutter;
     });
   }
+
+// Footer: Document name and page numbers - runs loop after all pages are created
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+
+    // Values from form
+    const jobNo = document.getElementById("cgwJobNo").value //job number
+    const rawDate = document.getElementById("inspectionDate").value; //inspection date
+    const dateVal = rawDate ? rawDate.replace(/-/g, ".") : ""; //formats dates with . instead of -
+    const purpose = document.getElementById("purpose").value || "Purpose"; //type/purpose of inspection
+
+    // Left footer text
+    const leftText = `${jobNo}-SIF-${dateVal} ${purpose}`;
+
+    // Right footer text
+    const rightText = `Page ${i}/${pageCount}`;
+
+    // Footer Y-position (10 mm from bottom)
+    const pageHeight = doc.internal.pageSize.height;
+    doc.setFontSize(9);
+    doc.text(leftText, 15, pageHeight - 10, { align: "left" });
+    doc.text(rightText, doc.internal.pageSize.width - 15, pageHeight - 10, { align: "right" });
+  }
   return doc;
 }
-
 document.getElementById('openPdfBtn').addEventListener('click',()=>{const doc=buildPdf();window.open(doc.output('bloburl'),'_blank');});
-document.getElementById('downloadPdfBtn').addEventListener('click',()=>{const doc=buildPdf();doc.save('slab-inspection-report.pdf');});
+document.getElementById('downloadPdfBtn').addEventListener('click', () => {
+  const doc = buildPdf();
+
+  // Grab values again
+  const jobNo   = document.getElementById("cgwJobNo").value || "JOB";
+  const rawDate = document.getElementById("inspectionDate").value || "";
+  const dateVal = rawDate ? rawDate.replace(/-/g, ".") : "";
+  const purpose = document.getElementById("purpose").value || "Purpose";
+
+  // Build dynamic filename
+  const filename = `${jobNo}-SIF-${dateVal} ${purpose}.pdf`;
+
+  // Save
+  doc.save(filename);
+});
 </script>
+
 <script>
 (function(){
   function resizeStatusSelects(){
